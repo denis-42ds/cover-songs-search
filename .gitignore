@@ -2,4 +2,4 @@ data/
 .git/
 .ipynb_checkpoints/
 *.docx
-*.zip
+data_ym.zip
