@@ -3,5 +3,4 @@ data/
 .ipynb_checkpoints/
 *.docx
 *.zip
-mumeli_venv/
-MusicMetaLinker/
+
