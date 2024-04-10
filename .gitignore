@@ -1,6 +1,7 @@
 data/
+__pycache__
+.env_mc/
 .git/
 .ipynb_checkpoints/
-*.docx
-*.zip
-
+run_jupyter.sh
+.env
