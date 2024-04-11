@@ -3,11 +3,11 @@
 ## Статус проекта: в работе
 
 ## Описание рабочих файлов:
-- `requirements.txt` - библиотеки Python, необходимые для работы проекта, а также их версии
-- `music_covers.ipynb` - рабочая тетрадь с исследованиями, визуализациями и текстовыми описаниями
-- `research_class.py` - файл, содержащий класс для проведения исследования
-- `assets` - директория с сохранёнными артефактами
-- `run_mlflow_server.sh` - скрипт для запуска mlflow server
+- [requirements.txt](https://github.com/denis-42ds/cover_songs_search/blob/ym/requirements.txt) - библиотеки Python, необходимые для работы проекта, а также их версии
+- [music_covers.ipynb](https://github.com/denis-42ds/cover_songs_search/blob/ym/music_covers.ipynb) - рабочая тетрадь с исследованиями, визуализациями и текстовыми описаниями
+- [research_class.py](https://github.com/denis-42ds/cover_songs_search/blob/ym/research_class.py) - файл, содержащий класс для проведения исследования
+- [assets](https://github.com/denis-42ds/cover_songs_search/tree/ym/assets) - директория с сохранёнными артефактами
+- [run_mlflow_server.sh](https://github.com/denis-42ds/cover_songs_search/blob/ym/run_mlflow_server.sh) - скрипт для запуска mlflow server
 
 ## Описание проекта
 <br>Разработка ML-модели для сопоставления текстов музыкальных произведений и для поиска каверов (вариации обработки оригинала с элементами новой аранжировки) по их текстам
@@ -30,14 +30,7 @@
 ## Используемые инструменты
 - PostgreSQL,
 - MLflow,
-- Python: pandas, numpy, matplotlib, seaborn, 
-- xgboost
-- torch
-- transformers
-- sentence_transformers
-- tqdm
-- catboost
-- sklearn
+- Python: pandas, numpy, matplotlib, seaborn, sentence_transformers, torch, sklearn, catboost
 
 ## Вывод:
 - в решении поставленной задачи основными признаками приняты текст и дата появления трека

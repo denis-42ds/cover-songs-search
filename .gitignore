@@ -1,4 +1,6 @@
+catboost_info/
 data/
+mlflow_experiments_store/
 __pycache__
 .env_mc/
 .git/
