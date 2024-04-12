@@ -1,28 +1,31 @@
 # импорт модулей
-# import os
-# import phik
-# import shap
-# import numpy as np
+import os
+import torch
+import random
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from catboost import Pool, CatBoostClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LogisticRegression
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics import roc_curve, roc_auc_score, f1_score
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate, GridSearchCV
 
-# from datetime import timedelta
-# from autofeat import AutoFeatClassifier
-# from phik.report import plot_correlation_matrix
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.linear_model import LogisticRegression
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.metrics import roc_curve, roc_auc_score, f1_score, confusion_matrix
-# from sklearn.model_selection import (
-#     train_test_split,
-#     StratifiedKFold,
-#     cross_validate
-# )
-
+# установка констант
 RANDOM_STATE = 42
-# sns.set_style("white")
-# sns.set_theme(style="whitegrid")
+random.seed(RANDOM_STATE)
+np.random.seed(RANDOM_STATE)
+torch.manual_seed(RANDOM_STATE)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(RANDOM_STATE)
+sns.set_style("white")
+sns.set_theme(style="whitegrid")
+pd.options.display.max_columns = 100
+pd.options.display.max_rows = 64
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DatasetExplorer:
 	def __init__(self, dataset, target=None):
@@ -87,137 +90,134 @@ class DatasetExplorer:
 				plt.savefig(os.path.join(assets_dir, 'target_count.png'))
 			plt.show()
 
-	# def data_preprocessing(self, dropnas=True, date_features=None, int_features=None, drop_features=None):
- #        # удаление дубликатов
-	# 	self.dataset.drop_duplicates(inplace=True)
-	# 	self.dataset.reset_index(drop=True, inplace=True)
- #        # удаление пропущенных значений
-	# 	if dropnas:
-	# 		self.dataset.dropna(inplace=True)
-        
- #        # изменение типов данных для дат
-	# 	if date_features is not None:
-	# 		if isinstance(date_features, list):
-	# 			rows_deleted = 0
-	# 			for col in date_features:
-	# 				try:
-	# 					self.dataset[col] = pd.to_datetime(self.dataset[col], format='%Y-%m-%d %H:%M:%S.%f')
-	# 				except pd.errors.OutOfBoundsDatetime as e:
-	# 					error_message = str(e)
-	# 					print(f"Ошибка при обработке даты в столбце {col}: {error_message}")
-	# 					error_indices = self.dataset[self.dataset[col] == error_message].index
-	# 					self.dataset.drop(index=error_indices, inplace=True)
-	# 					rows_deleted += len(error_indices)
-	# 			if rows_deleted > 0:
-	# 				print(f"По причине некорректного значения даты удалено {rows_deleted} строк.")
-	# 		else:
-	# 			try:
-	# 				self.dataset[date_features] = pd.to_datetime(self.dataset[date_features], format='%Y-%m-%d %H:%M:%S.%f')
-	# 			except pd.errors.OutOfBoundsDatetime as e:
-	# 				error_message = str(e)
-	# 				print(f"Ошибка при обработке даты в столбце {date_features}: {error_message}")
-	# 				error_indices = self.dataset[self.dataset[date_features] == error_message].index
-	# 				self.dataset.drop(index=error_indices, inplace=True)
-	# 				print(f"По причине некорректного значения даты удалено {len(error_indices)} строк.")
-        
- #        # изменение типов данных для целочисленных значений
-	# 	if int_features is not None:
-	# 		if isinstance(int_features, list):
-	# 			for col in int_features:
-	# 				try:
-	# 					self.dataset[col] = self.dataset[col].astype('int')
-	# 				except pd.errors.IntCastingNaNError:
-	# 					self.dataset[col] = self.dataset[col].fillna(-1).astype('int')
-	# 		else:
-	# 			try:
-	# 				self.dataset[int_features] = self.dataset[int_features].astype('int')
-	# 			except pd.errors.IntCastingNaNError:
-	# 				self.dataset[int_features] = self.dataset[int_features].fillna(-1).astype('int')
-        
- #        # удаление ненужных признаков, если drop_features не равен None
-	# 	if drop_features is not None:
-	# 		if isinstance(drop_features, list):
-	# 			self.dataset.drop(columns=drop_features, axis=1, inplace=True)
-        
- #        # отображение обновлённого датасета
-	# 	self.dataset.info()
-	# 	display(self.dataset.head())
-	# 	return self.dataset
+	def data_preprocessing(self, text_sentences=None, target_encoder='LabelEncoder', data_columns=None, cluster_model='KMeans', data_type='baseline_data', assets_dir=None):
+		# получение эмбеддингов
+		try:
+			text_embeddings = pd.read_csv('data/text_embeddings.csv')
+		except:
+			model = SentenceTransformer('sentence-transformers/LaBSE')
+			text_embeddings = model.encode(text_sentences)
+			text_embeddings_df = pd.DataFrame(text_embeddings)
+			text_embeddings_df.to_csv('data/text_embeddings.csv', index=False)
+			print("Файл text_embeddings.csv успешно сохранен.")
+		print(f"Размерность таблицы эмбеддингов: {text_embeddings.shape}")
 
-	# def exploratory_data_analysis(self, table_name=None, drop_columns=None, interval_cols=None, size=(8, 8), assets_dir=None):
-	# 	phik_overview = self.dataset.drop(columns=drop_columns).phik_matrix(interval_cols=interval_cols)
-	# 	sns.set()
-	# 	plot_correlation_matrix(phik_overview.values,
-	# 							x_labels=phik_overview.columns,
-	# 							y_labels=phik_overview.index,
-	# 							vmin=0,
-	# 							vmax=1,
-	# 							fontsize_factor=0.8,
-	# 							figsize=size)
-	# 	plt.xticks(rotation=45)
-	# 	plt.title(f'Корреляция между признаками в таблице {table_name}', fontsize=12, y=1.02)
-	# 	plt.tight_layout()
-	# 	if assets_dir:
-	# 		plt.savefig(os.path.join(assets_dir, f'target_count_{table_name}.png'))
+		# кодирование целевой переменной
+		if target_encoder == 'LabelEncoder':
+			label_encoder = LabelEncoder()
+			self.dataset['is_cover'] = label_encoder.fit_transform(np.array(self.dataset[self.target]).ravel())
+			self.dataset['is_cover'] = self.dataset['is_cover'].map({0: 1, 1: 0})
+			target = 'is_cover'
+		else:
+			print("input LabelEncoder")
 
-	# def feature_engineering(self, test_size=0.2, features=None, target=None, add_features=False, transformations=None, categorical_features=None):
-	# 	X_train, X_test, y_train, y_test = train_test_split(self.dataset[features],
-	# 														self.dataset[target],
-	# 														test_size=test_size,
-	# 														random_state=RANDOM_STATE,
-	# 														stratify=self.dataset[target])
-	# 	scaler = StandardScaler()
-	# 	X_train_scl = pd.DataFrame(scaler.fit_transform(X_train), columns=X_train.columns, index=X_train.index)
-	# 	X_test_scl = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns, index=X_test.index)
-	# 	if add_features:
-	# 		transformations = transformations
-	# 		afc = AutoFeatClassifier(categorical_cols=categorical_features, feateng_steps=1, max_gb=2, transformations=transformations, n_jobs=-1)
-	# 		X_train_afc = afc.fit_transform(X_train, y_train)
-	# 		X_test_afc = afc.transform(X_test)
-	# 		print(X_train_afc.shape, X_test_afc.shape, y_train.shape, y_test.shape)
-	# 		return X_train_afc, X_test_afc, y_train, y_test
-	# 	else:
-	# 		print(X_train_scl.shape, X_test_scl.shape, y_train.shape, y_test.shape)
-	# 		return X_train_scl, X_test_scl, y_train, y_test
+		# разделение на обучающую и тестовую выборки и кластеризация
+		new_data = text_embeddings.merge(self.dataset[data_columns], left_index=True, right_index=True)
+		if data_type == 'baseline_data':
+			X_train, X_test, y_train, y_test = train_test_split(new_data.drop(data_columns, axis=1),
+				                                                new_data[target],
+			                                                    test_size=0.1,
+			                                                    random_state=RANDOM_STATE,
+			                                                    stratify=new_data[target])
+		else:
+			if cluster_model == 'KMeans':
+				cluster_model = KMeans(n_clusters=10, random_state=RANDOM_STATE, init='k-means++')
+				cluster_labels = cluster_model.fit_predict(new_data)
+				new_data['cluster'] = cluster_labels
 
-	# def feature_selection(self):
-	# 	pass
-	
-	# def model_fitting(self, model_name=None, features_train=None, target_train=None, params=None):
-	# 	if model_name == 'Baseline' or model_name == 'Logistic Regression':
-	# 		model = LogisticRegression(**params)
-	# 	elif model_name == 'Random Forest':
-	# 		model = RandomForestClassifier(**params)
-	# 	model.fit(features_train, target_train)
-	# 	cv_strategy = StratifiedKFold(n_splits=4)
-	# 	cv_res = cross_validate(model,
-	# 							features_train,
-	# 							target_train,
-	# 							cv=cv_strategy,
-	# 							n_jobs=-1,
-	# 							scoring=['roc_auc', 'f1_micro', 'f1', 'f1_weighted', 'f1_macro'])
-	# 	for key, value in cv_res.items():
-	# 		cv_res[key] = round(value.mean(), 3)
-	# 	print(f"результаты кросс-вадидации: {cv_res}")
-	# 	y_pred = model.predict(features_train.values)
-	# 	y_pred_proba = model.predict_proba(features_train.values)[:, 1]
+			fig, axs = plt.subplots(2, 1)
+			fig.tight_layout(pad=1.0)
+			fig.set_size_inches(20, 10, forward=True)
+
+			axs[0].scatter(new_data.iloc[:, 1], new_data.iloc[:, 0], c=cluster_labels, cmap='viridis', alpha=0.5)
+			axs[0].scatter(cluster_model.cluster_centers_[:, 0], cluster_model.cluster_centers_[:, 1], marker='x', s=100, c='red', label='Centroids')
+			axs[0].set_xlabel('Feature 1')
+			axs[0].set_ylabel('Feature 2')
+			axs[0].set_title('KMeans Clustering')
+			axs[0].legend()
+
+			sns.countplot(x='cluster', hue=target, data=new_data, ax=axs[1])
+			axs[1].set_xlabel('Cluster_numbers')
+			axs[1].set_ylabel('Count')
+			axs[1].set_title('Распределение классов целевой переменной по кластерам')
+
+			plt.show()
+
+			centroids = cluster_model.cluster_centers_
+
+			plt.figure(figsize=(20, 5))
+			for i, centroid in enumerate(centroids):
+				plt.subplot(1, len(centroids), i+1)
+				plt.scatter(new_data.iloc[:, 0], new_data.iloc[:, 1], c=cluster_labels, cmap='viridis', alpha=0.7, edgecolors='k')
+				plt.scatter(centroid[0], centroid[1], marker='x', s=200, c='red', label=f'Centroid {i}')
+				plt.xlabel('Feature 1')
+				plt.ylabel('Feature 2')
+				plt.title(f'Centroid {i}')
+
+			plt.suptitle('Диаграммы рассеяния для каждого центроида')
+			plt.tight_layout()
+			plt.show()
+
+			plt.figure(figsize=(20, 5))
+			for i, centroid in enumerate(centroids):
+				plt.subplot(1, len(centroids), i+1)
+				cluster_data = new_data[cluster_labels == i]
+				plt.scatter(cluster_data.iloc[:, 0], cluster_data.iloc[:, 1], c='blue', alpha=0.7, edgecolors='k')
+				plt.scatter(centroid[0], centroid[1], marker='x', s=200, c='red', label=f'Centroid {i}')
+				plt.xlabel('Feature 1')
+				plt.ylabel('Feature 2')
+				plt.title(f'Cluster {i}')
+
+			plt.suptitle('Диаграммы рассеяния для каждого кластера и его центроида')
+			plt.tight_layout()
+			plt.show()
+
+			X_train, X_test, y_train, y_test = train_test_split(new_data.drop(target, axis=1),
+			                                                    new_data[target],
+			                                                    test_size=0.1,
+			                                                    random_state=RANDOM_STATE,
+			                                                    stratify=new_data[target])
+		
+		print(f"Размерности полученных выборок: {X_train.shape, X_test.shape, y_train.shape, y_test.shape}")
+
+		return target, X_train, X_test, y_train, y_test
+
+	def model_fitting(self, model_name=None, features_train=None, target_train=None, params=None, params_search=False, assets_dir=None):
+		if params_search:
+			pass
+		else:
+			if model_name == 'Baseline' or model_name == 'Logistic Regression':
+				model = LogisticRegression(**params)
+			elif model_name == 'CatBoost':
+				model = CatBoostClassifier(**params)
+			model.fit(features_train, target_train)
+			cv_strategy = StratifiedKFold(n_splits=4)
+			cv_res = cross_validate(model,
+									features_train,
+									target_train,
+									cv=cv_strategy,
+									n_jobs=-1,
+									scoring=['roc_auc', 'f1'])
+			for key, value in cv_res.items():
+				cv_res[key] = round(value.mean(), 3)
+			print(f"Результаты кросс-вадидации: {cv_res}")
 				
-	# 	roc_auc_value = roc_auc_score(target_train, y_pred_proba)
-	# 	f1_value = f1_score(target_train, y_pred)
-	# 	# Визуализация кривой ROC
-	# 	fpr, tpr, thresholds = roc_curve(target_train, y_pred_proba)
-	# 	sns.set_style('darkgrid')
-	# 	plt.plot(fpr, tpr, linewidth=1.5, label='ROC-AUC (area = %0.2f)' % roc_auc_value)
-	# 	plt.plot([0, 1], [0, 1], linestyle='--', linewidth=1.5, label='random_classifier')
-	# 	plt.xlim([-0.05, 1.0])
-	# 	plt.ylim([0.0, 1.05])
-	# 	plt.xlabel('False Positive Rate', fontsize=11)
-	# 	plt.ylabel('True Positive Rate', fontsize=11)
-	# 	plt.title('%s Receiver Operating Characteristic' % model_name, fontsize=12)
-	# 	plt.legend(loc='lower right')
-	# 	plt.show()
+		y_pred_proba = model.predict_proba(features_train)[:, 1]
+		roc_auc_value = roc_auc_score(target_train, y_pred_proba)
+		fpr, tpr, thresholds = roc_curve(target_train, y_pred_proba)
+		plt.plot(fpr, tpr, linewidth=1.5, label='ROC-AUC (area = %0.2f)' % roc_auc_value)
+		plt.plot([0, 1], [0, 1], linestyle='--', linewidth=1.5, label='random_classifier')
+		plt.xlim([-0.05, 1.0])
+		plt.ylim([0.0, 1.05])
+		plt.xlabel('False Positive Rate', fontsize=11)
+		plt.ylabel('True Positive Rate', fontsize=11)
+		plt.title(f"{model_name} Receiver Operating Characteristic", fontsize=12)
+		plt.legend(loc='lower right')
+		if assets_dir:
+			plt.savefig(os.path.join(assets_dir, f'{model_name} Receiver Operating Characteristic.png'))
+		plt.show()
 
-	# 	return cv_res['test_f1'], cv_res['test_roc_auc'], model
+		return cv_res, model
 
 	# def test_best_model(self, model, features_train, features_test, target_test):
 	# 	y_pred_proba = model.predict_proba(features_test.values)[:, 1]
